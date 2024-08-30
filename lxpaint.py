@@ -126,7 +126,7 @@ def flood_fill(surface, start_pos, color):
     stack = [start_pos]
     while stack:
         x, y = stack.pop()
-        if surface.get_at((x, y)) == start_color:
+        if 0 <= x < canvas_width and 0 <= y < canvas_height and surface.get_at((x, y)) == start_color:
             surface.set_at((x, y), color)
             if x > 0: stack.append((x - 1, y))
             if x < canvas_width - 1: stack.append((x + 1, y))
@@ -139,6 +139,14 @@ while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
+        
+        if event.type == pygame.VIDEORESIZE:
+            new_width, new_height = event.size
+            screen = pygame.display.set_mode((new_width, new_height), pygame.RESIZABLE)
+            toolbar = pygame.Surface((new_width, TOOLBAR_HEIGHT))
+            canvas = pygame.Surface((new_width, new_height - TOOLBAR_HEIGHT))
+            canvas.fill(WHITE)
+            draw_toolbar()
         
         if event.type == pygame.MOUSEBUTTONDOWN:
             if event.pos[1] < TOOLBAR_HEIGHT:
