@@ -6,6 +6,7 @@ import copy
 
 # Initialize Pygame
 pygame.init()
+print(pygame.__version__)
 
 # Constants
 WINDOW_WIDTH, WINDOW_HEIGHT = 800, 600
