@@ -155,7 +155,7 @@ while running:
                         rect = pygame.Rect(grid_x + (i % 3) * (grid_size + 10), grid_y + (i // 3) * (grid_size + 10), grid_size, grid_size)
                         if rect.collidepoint(event.pos):
                             color = GRID_COLORS[i]
-                            break
+                            break 
             else:
                 if tool == "Text":
                     # Start text input mode
