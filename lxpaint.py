@@ -2,7 +2,6 @@ import pygame
 import sys
 import colorsys
 import math
-import copy
 import tkinter as tk
 from tkinter import filedialog
 from io import BytesIO
@@ -13,13 +12,17 @@ tk_root = tk.Tk()
 tk_root.withdraw()  # Hide the main Tkinter window
 
 # Constants
-WINDOW_WIDTH, WINDOW_HEIGHT = 800, 600
+WINDOW_WIDTH, WINDOW_HEIGHT = 1000, 800
 TOOLBAR_HEIGHT = 50
+MENU_BAR_HEIGHT = 30
+DROP_DOWN_HEIGHT = 90
 BRUSH_SIZE = 5
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 GRAY = (169, 169, 169)
 TEXT_COLOR = (0, 0, 0)
+MENU_COLOR = (200, 200, 200)
+DROP_DOWN_COLOR = (220, 220, 220)
 GRID_COLORS = [
     (255, 0, 0), (0, 255, 0), (0, 0, 255),
     (255, 255, 0), (0, 255, 255), (255, 0, 255),
@@ -30,13 +33,26 @@ GRID_COLORS = [
 screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.RESIZABLE)
 pygame.display.set_caption("Lx Paint")
 
+# Load and set the icon
+icon = pygame.image.load('icon.ico')
+pygame.display.set_icon(icon)
+
 # Initialize the canvas
-canvas = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT - TOOLBAR_HEIGHT))
+canvas = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT - TOOLBAR_HEIGHT - MENU_BAR_HEIGHT - DROP_DOWN_HEIGHT))
 canvas.fill(WHITE)
 
 # Initialize toolbar
 toolbar = pygame.Surface((WINDOW_WIDTH, TOOLBAR_HEIGHT))
 toolbar.fill(GRAY)
+
+# Initialize menu bar
+menu_bar = pygame.Surface((WINDOW_WIDTH, MENU_BAR_HEIGHT))
+menu_bar.fill(MENU_COLOR)
+
+# Initialize dropdown menu
+drop_down = pygame.Surface((WINDOW_WIDTH, DROP_DOWN_HEIGHT))
+drop_down.fill(DROP_DOWN_COLOR)
+drop_down_visible = False
 
 # Draw the color wheel
 def draw_color_wheel(surface, center, radius):
@@ -77,8 +93,62 @@ def draw_toolbar():
         text = font.render(name, True, TEXT_COLOR)
         toolbar.blit(text, (310 + (i * (button_width + 10)), 15))
 
-# Call function to draw toolbar
+# Draw the menu bar
+def draw_menu_bar():
+    menu_bar.fill(MENU_COLOR)
+    
+    # Draw menu items
+    menu_items = ["File", "Edit", "Insert", "Other"]
+    item_width = WINDOW_WIDTH // len(menu_items)
+    font = pygame.font.Font(None, 24)
+    
+    for i, item in enumerate(menu_items):
+        rect = pygame.Rect(i * item_width, 0, item_width, MENU_BAR_HEIGHT)
+        pygame.draw.rect(menu_bar, GRAY, rect)
+        pygame.draw.rect(menu_bar, BLACK, rect, 1)  # Border
+        text = font.render(item, True, TEXT_COLOR)
+        text_rect = text.get_rect(center=rect.center)
+        menu_bar.blit(text, text_rect)
+
+# Draw the dropdown menu
+def draw_drop_down():
+    drop_down.fill(DROP_DOWN_COLOR)
+    
+    # Draw dropdown items
+    drop_down_items = ["Open File", "Save", "Save As"]
+    item_height = DROP_DOWN_HEIGHT // len(drop_down_items)
+    font = pygame.font.Font(None, 24)
+    
+    for i, item in enumerate(drop_down_items):
+        rect = pygame.Rect(0, i * item_height, WINDOW_WIDTH, item_height)
+        pygame.draw.rect(drop_down, GRAY, rect)
+        pygame.draw.rect(drop_down, BLACK, rect, 1)  # Border
+        text = font.render(item, True, TEXT_COLOR)
+        text_rect = text.get_rect(center=rect.center)
+        drop_down.blit(text, text_rect)
+
+# Handle file operations
+def save_canvas_as_image():
+    file_path = filedialog.asksaveasfilename(
+        defaultextension=".png",
+        filetypes=[("PNG files", "*.png"), ("All files", "*.*")],
+        title="Save As"
+    )
+    if file_path:
+        pygame.image.save(canvas, file_path)
+
+def open_file():
+    file_path = filedialog.askopenfilename(
+        filetypes=[("PNG files", "*.png"), ("All files", "*.*")],
+        title="Open File"
+    )
+    if file_path:
+        image = pygame.image.load(file_path)
+        canvas.blit(image, (0, 0))
+
+# Call functions to draw toolbar, menu bar, and dropdown menu
 draw_toolbar()
+draw_menu_bar()
 
 # Variables
 drawing = False
@@ -91,27 +161,14 @@ undo_stack = []
 redo_stack = []
 
 def save_to_undo_stack():
-    # Save the canvas state as raw pixel data
     undo_stack.append(pygame.image.tostring(canvas, 'RGB'))
-    
+
 def restore_from_undo_stack():
     if undo_stack:
-        # Get the raw pixel data from the undo stack
         pixel_data = undo_stack.pop()
-        # Create a new surface with the same dimensions and fill it with the pixel data
-        new_surface = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT - TOOLBAR_HEIGHT))
-        new_surface.blit(pygame.image.fromstring(pixel_data, (WINDOW_WIDTH, WINDOW_HEIGHT - TOOLBAR_HEIGHT), 'RGB'), (0, 0))
+        new_surface = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT - TOOLBAR_HEIGHT - MENU_BAR_HEIGHT - DROP_DOWN_HEIGHT))
+        new_surface.blit(pygame.image.fromstring(pixel_data, (WINDOW_WIDTH, WINDOW_HEIGHT - TOOLBAR_HEIGHT - MENU_BAR_HEIGHT - DROP_DOWN_HEIGHT), 'RGB'), (0, 0))
         canvas.blit(new_surface, (0, 0))
-
-def save_canvas_as_image():
-    # Open file dialog to choose where to save
-    file_path = filedialog.asksaveasfilename(
-        defaultextension=".png",
-        filetypes=[("PNG files", "*.png"), ("All files", "*.*")],
-        title="Save As"
-    )
-    if file_path:
-        pygame.image.save(canvas, file_path)
 
 def get_color_from_wheel(pos):
     wheel_center = (70, TOOLBAR_HEIGHT // 2)
@@ -134,13 +191,37 @@ while running:
             running = False
         
         if event.type == pygame.MOUSEBUTTONDOWN:
-            if event.pos[1] < TOOLBAR_HEIGHT:
-                if 30 <= event.pos[0] <= 110 and TOOLBAR_HEIGHT // 2 - 40 <= event.pos[1] <= TOOLBAR_HEIGHT // 2 + 40:
+            if event.pos[1] < MENU_BAR_HEIGHT:
+                item_width = WINDOW_WIDTH // 4
+                item_index = event.pos[0] // item_width
+                if item_index == 0:
+                    # Handle File menu click
+                    drop_down_visible = not drop_down_visible
+                elif item_index == 1:
+                    # Handle Edit menu click
+                    print("Edit menu clicked")
+                elif item_index == 2:
+                    # Handle Insert menu click
+                    print("Insert menu clicked")
+                elif item_index == 3:
+                    # Handle Other menu click
+                    print("Other menu clicked")
+            elif drop_down_visible and event.pos[1] >= MENU_BAR_HEIGHT and event.pos[1] < MENU_BAR_HEIGHT + DROP_DOWN_HEIGHT:
+                drop_down_item_index = (event.pos[1] - MENU_BAR_HEIGHT) // (DROP_DOWN_HEIGHT // 3)
+                if drop_down_item_index == 0:
+                    open_file()
+                elif drop_down_item_index == 1:
+                    save_canvas_as_image()
+                elif drop_down_item_index == 2:
+                    save_canvas_as_image()
+                drop_down_visible = False
+            else:
+                if event.pos[1] < TOOLBAR_HEIGHT:
+                    # Handle color wheel click
                     color = get_color_from_wheel(event.pos)
                     if color is None:
                         color = BLACK
                 else:
-                    # Check tool buttons
                     tool_names = ["Pencil", "Brush", "Line", "Rectangle", "Ellipse", "Fill", "Text", "Eraser"]
                     button_width, button_height = 80, 30
                     for i, name in enumerate(tool_names):
@@ -148,53 +229,49 @@ while running:
                         if rect.collidepoint(event.pos):
                             tool = name
                             break
-                    # Check color grid buttons
                     grid_x, grid_y = 150, 10
                     grid_size = 30
                     for i, c in enumerate(GRID_COLORS):
                         rect = pygame.Rect(grid_x + (i % 3) * (grid_size + 10), grid_y + (i // 3) * (grid_size + 10), grid_size, grid_size)
                         if rect.collidepoint(event.pos):
                             color = GRID_COLORS[i]
-                            break 
-            else:
-                if tool == "Text":
-                    # Start text input mode
-                    text_input = ""
-                else:
-                    save_to_undo_stack()  # Save the current canvas state before drawing
-                    drawing = True
-                    last_pos = (event.pos[0], event.pos[1] - TOOLBAR_HEIGHT)
+                            break
+            if event.type == pygame.MOUSEBUTTONUP:
+                drawing = False
+                last_pos = None
+            if event.type == pygame.MOUSEMOTION:
+                if drawing:
+                    if tool == "Pencil" or tool == "Brush":
+                        pygame.draw.line(canvas, color, last_pos, (event.pos[0], event.pos[1] - TOOLBAR_HEIGHT - MENU_BAR_HEIGHT - DROP_DOWN_HEIGHT), brush_size if tool == "Brush" else 1)
+                    elif tool == "Line":
+                        canvas.blit(pygame.image.fromstring(undo_stack[-1], (WINDOW_WIDTH, WINDOW_HEIGHT - TOOLBAR_HEIGHT - MENU_BAR_HEIGHT - DROP_DOWN_HEIGHT), 'RGB'), (0, 0))
+                        pygame.draw.line(canvas, color, last_pos, (event.pos[0], event.pos[1] - TOOLBAR_HEIGHT - MENU_BAR_HEIGHT - DROP_DOWN_HEIGHT), brush_size)
+                    elif tool == "Rectangle":
+                        canvas.blit(pygame.image.fromstring(undo_stack[-1], (WINDOW_WIDTH, WINDOW_HEIGHT - TOOLBAR_HEIGHT - MENU_BAR_HEIGHT - DROP_DOWN_HEIGHT), 'RGB'), (0, 0))
+                        pygame.draw.rect(canvas, color, pygame.Rect(min(last_pos[0], event.pos[0]), min(last_pos[1], event.pos[1] - TOOLBAR_HEIGHT - MENU_BAR_HEIGHT - DROP_DOWN_HEIGHT), abs(last_pos[0] - event.pos[0]), abs(last_pos[1] - (event.pos[1] - TOOLBAR_HEIGHT - MENU_BAR_HEIGHT - DROP_DOWN_HEIGHT))), brush_size)
+                    elif tool == "Ellipse":
+                        canvas.blit(pygame.image.fromstring(undo_stack[-1], (WINDOW_WIDTH, WINDOW_HEIGHT - TOOLBAR_HEIGHT - MENU_BAR_HEIGHT - DROP_DOWN_HEIGHT), 'RGB'), (0, 0))
+                        pygame.draw.ellipse(canvas, color, pygame.Rect(min(last_pos[0], event.pos[0]), min(last_pos[1], event.pos[1] - TOOLBAR_HEIGHT - MENU_BAR_HEIGHT - DROP_DOWN_HEIGHT), abs(last_pos[0] - event.pos[0]), abs(last_pos[1] - (event.pos[1] - TOOLBAR_HEIGHT - MENU_BAR_HEIGHT - DROP_DOWN_HEIGHT))), brush_size)
+                    last_pos = (event.pos[0], event.pos[1] - TOOLBAR_HEIGHT - MENU_BAR_HEIGHT - DROP_DOWN_HEIGHT)
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    running = False
+                if event.key == pygame.K_s and (pygame.key.get_mods() & pygame.KMOD_CTRL):
+                    save_canvas_as_image()
+                if event.key == pygame.K_o and (pygame.key.get_mods() & pygame.KMOD_CTRL):
+                    open_file()
+                if event.key == pygame.K_u and (pygame.key.get_mods() & pygame.KMOD_CTRL):
+                    restore_from_undo_stack()
 
-        if event.type == pygame.MOUSEBUTTONUP:
-            drawing = False
-            last_pos = None
-
-        if event.type == pygame.MOUSEMOTION:
-            if drawing:
-                if tool == "Pencil" or tool == "Brush":
-                    pygame.draw.line(canvas, color, last_pos, (event.pos[0], event.pos[1] - TOOLBAR_HEIGHT), brush_size if tool == "Brush" else 1)
-                elif tool == "Line":
-                    canvas.blit(pygame.image.fromstring(undo_stack[-1], (WINDOW_WIDTH, WINDOW_HEIGHT - TOOLBAR_HEIGHT), 'RGB'), (0, 0))  # Restore last canvas state
-                    pygame.draw.line(canvas, color, last_pos, (event.pos[0], event.pos[1] - TOOLBAR_HEIGHT), brush_size)
-                elif tool == "Rectangle":
-                    canvas.blit(pygame.image.fromstring(undo_stack[-1], (WINDOW_WIDTH, WINDOW_HEIGHT - TOOLBAR_HEIGHT), 'RGB'), (0, 0))  # Restore last canvas state
-                    pygame.draw.rect(canvas, color, pygame.Rect(min(last_pos[0], event.pos[0]), min(last_pos[1], event.pos[1] - TOOLBAR_HEIGHT), abs(last_pos[0] - event.pos[0]), abs(last_pos[1] - (event.pos[1] - TOOLBAR_HEIGHT))), brush_size)
-                elif tool == "Ellipse":
-                    canvas.blit(pygame.image.fromstring(undo_stack[-1], (WINDOW_WIDTH, WINDOW_HEIGHT - TOOLBAR_HEIGHT), 'RGB'), (0, 0))  # Restore last canvas state
-                    pygame.draw.ellipse(canvas, color, pygame.Rect(min(last_pos[0], event.pos[0]), min(last_pos[1], event.pos[1] - TOOLBAR_HEIGHT), abs(last_pos[0] - event.pos[0]), abs(last_pos[1] - (event.pos[1] - TOOLBAR_HEIGHT))), brush_size)
-                last_pos = (event.pos[0], event.pos[1] - TOOLBAR_HEIGHT)
-
-        if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_ESCAPE:
-                running = False
-            if event.key == pygame.K_s and (pygame.key.get_mods() & pygame.KMOD_CTRL):
-                save_canvas_as_image()
-            if event.key == pygame.K_u and (pygame.key.get_mods() & pygame.KMOD_CTRL):
-                restore_from_undo_stack()
-
+    # Draw everything
     screen.fill(WHITE)
-    screen.blit(canvas, (0, TOOLBAR_HEIGHT))
-    screen.blit(toolbar, (0, 0))
+    screen.blit(canvas, (0, MENU_BAR_HEIGHT + TOOLBAR_HEIGHT + (DROP_DOWN_HEIGHT if drop_down_visible else 0)))
+    screen.blit(toolbar, (0, MENU_BAR_HEIGHT + (DROP_DOWN_HEIGHT if drop_down_visible else 0)))
+    screen.blit(menu_bar, (0, 0))
+    if drop_down_visible:
+        draw_drop_down()
+        screen.blit(drop_down, (0, MENU_BAR_HEIGHT))
+    
     pygame.display.flip()
 
 pygame.quit()
