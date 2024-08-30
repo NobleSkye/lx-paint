@@ -2,11 +2,11 @@ import pygame
 import sys
 import colorsys
 import math
-import copy
+import tkinter as tk
+from tkinter import simpledialog
 
 # Initialize Pygame
 pygame.init()
-print(pygame.__version__)
 
 # Constants
 WINDOW_WIDTH, WINDOW_HEIGHT = 800, 600
@@ -22,12 +22,23 @@ GRID_COLORS = [
     (192, 192, 192), (128, 0, 0), (128, 128, 0)
 ]
 
+# Function to get canvas size from user
+def get_canvas_size():
+    root = tk.Tk()
+    root.withdraw()  # Hide the root window
+    width = simpledialog.askinteger("Canvas Width", "Enter canvas width:", initialvalue=WINDOW_WIDTH)
+    height = simpledialog.askinteger("Canvas Height", "Enter canvas height:", initialvalue=WINDOW_HEIGHT - TOOLBAR_HEIGHT)
+    return width, height
+
 # Set up the drawing window
 screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.RESIZABLE)
 pygame.display.set_caption("Lx Paint")
 
+# Get initial canvas size
+canvas_width, canvas_height = get_canvas_size()
+
 # Initialize the canvas
-canvas = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT - TOOLBAR_HEIGHT))
+canvas = pygame.Surface((canvas_width, canvas_height))
 canvas.fill(WHITE)
 
 # Initialize toolbar
@@ -87,13 +98,12 @@ undo_stack = []
 redo_stack = []
 
 def save_to_undo_stack():
-    undo_stack.append(copy.deepcopy(canvas.get_at((0, 0))))
-
+    # Save a deep copy of the canvas surface
+    undo_stack.append(pygame.Surface.copy(canvas))
 
 def restore_from_undo_stack():
     if undo_stack:
         canvas.blit(undo_stack.pop(), (0, 0))
-
 
 def get_color_from_wheel(pos):
     wheel_center = (70, TOOLBAR_HEIGHT // 2)
@@ -107,6 +117,21 @@ def get_color_from_wheel(pos):
         color = colorsys.hls_to_rgb(hue, lightness, 0.5)
         return tuple(int(c * 255) for c in color)
     return None
+
+# Flood fill function
+def flood_fill(surface, start_pos, color):
+    start_color = surface.get_at(start_pos)
+    if start_color == color:
+        return
+    stack = [start_pos]
+    while stack:
+        x, y = stack.pop()
+        if surface.get_at((x, y)) == start_color:
+            surface.set_at((x, y), color)
+            if x > 0: stack.append((x - 1, y))
+            if x < canvas_width - 1: stack.append((x + 1, y))
+            if y > TOOLBAR_HEIGHT: stack.append((x, y - 1))
+            if y < canvas_height - 1: stack.append((x, y + 1))
 
 # Main loop
 running = True
@@ -165,34 +190,12 @@ while running:
                     canvas.blit(undo_stack[-1], (0, 0))  # Restore last canvas state
                     pygame.draw.ellipse(canvas, color, pygame.Rect(min(last_pos[0], event.pos[0]), min(last_pos[1], event.pos[1] - TOOLBAR_HEIGHT), abs(last_pos[0] - event.pos[0]), abs(last_pos[1] - (event.pos[1] - TOOLBAR_HEIGHT))), brush_size)
                 elif tool == "Fill":
-                    # Use a flood fill algorithm for the fill tool
-                    start_color = canvas.get_at(last_pos)
-                    fill_color = color
-                    if start_color != fill_color:
-                        stack = [last_pos]
-                        while stack:
-                            x, y = stack.pop()
-                            if canvas.get_at((x, y)) == start_color:
-                                canvas.set_at((x, y), fill_color)
-                                if x > 0:
-                                    stack.append((x - 1, y))
-                                if x < WINDOW_WIDTH:
-                                    stack.append((x + 1, y))
-                                if y > 0:
-                                    stack.append((x, y - 1))
-                                if y < WINDOW_HEIGHT - TOOLBAR_HEIGHT:
-                                    stack.append((x, y + 1))
-                elif tool == "Eraser":
-                    pygame.draw.line(canvas, WHITE, last_pos, (event.pos[0], event.pos[1] - TOOLBAR_HEIGHT), brush_size)
-
+                    flood_fill(canvas, (event.pos[0], event.pos[1] - TOOLBAR_HEIGHT), color)
                 last_pos = (event.pos[0], event.pos[1] - TOOLBAR_HEIGHT)
 
         if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_u:
-                restore_from_undo_stack()  # Undo
-            elif event.key == pygame.K_r:
-                # Redo (not implemented yet)
-                pass
+            if event.key == pygame.K_z and pygame.key.get_mods() & pygame.KMOD_CTRL:
+                restore_from_undo_stack()
             elif event.key == pygame.K_s:
                 # Save the drawing as an image
                 pygame.image.save(canvas, "drawing.png")
@@ -210,6 +213,16 @@ while running:
                     text_surface = font.render(text_input, True, color)
                     canvas.blit(text_surface, (last_pos[0], last_pos[1] - TOOLBAR_HEIGHT))
                     text_input = ""
+            elif event.key == pygame.K_c:
+                # Change canvas size
+                new_width, new_height = get_canvas_size()
+                new_canvas = pygame.Surface((new_width, new_height))
+                new_canvas.fill(WHITE)
+                new_canvas.blit(canvas, (0, 0))
+                canvas = new_canvas
+                canvas_width, canvas_height = new_width, new_height
+                screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.RESIZABLE)
+                draw_toolbar()
 
     # Blit the canvas and toolbar onto the screen
     screen.blit(canvas, (0, TOOLBAR_HEIGHT))

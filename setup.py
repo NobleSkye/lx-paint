@@ -2,7 +2,7 @@ from cx_Freeze import setup, Executable
 
 build_exe_options = {
     "packages": ["pygame"],
-    "include_files": [icon.ico],
+    "include_files": [],
 }
 
 setup(
