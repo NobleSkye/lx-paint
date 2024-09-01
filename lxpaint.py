@@ -30,7 +30,7 @@ GRID_COLORS = [
     (255, 0, 0), (0, 255, 0), (0, 0, 255),
     (255, 255, 0), (0, 255, 255), (255, 0, 255),
     (192, 192, 192), (128, 0, 0), (128, 128, 0)
-] 
+]
 
 # Set up the drawing window
 screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.RESIZABLE)
