@@ -6,6 +6,9 @@ import tkinter as tk
 from tkinter import filedialog
 from io import BytesIO
 
+
+
+
 # Initialize Pygame and Tkinter
 pygame.init()
 tk_root = tk.Tk()
@@ -195,32 +198,23 @@ while running:
                 item_width = WINDOW_WIDTH // 4
                 item_index = event.pos[0] // item_width
                 if item_index == 0:
-                    # Handle File menu click
                     drop_down_visible = not drop_down_visible
-                elif item_index == 1:
-                    # Handle Edit menu click
-                    print("Edit menu clicked")
-                elif item_index == 2:
-                    # Handle Insert menu click
-                    print("Insert menu clicked")
-                elif item_index == 3:
-                    # Handle Other menu click
-                    print("Other menu clicked")
+                # Other menu options can be handled here
+
             elif drop_down_visible and event.pos[1] >= MENU_BAR_HEIGHT and event.pos[1] < MENU_BAR_HEIGHT + DROP_DOWN_HEIGHT:
                 drop_down_item_index = (event.pos[1] - MENU_BAR_HEIGHT) // (DROP_DOWN_HEIGHT // 3)
                 if drop_down_item_index == 0:
                     open_file()
                 elif drop_down_item_index == 1:
                     save_canvas_as_image()
-                elif drop_down_item_index == 2:
-                    save_canvas_as_image()
                 drop_down_visible = False
+
             else:
                 if event.pos[1] < TOOLBAR_HEIGHT:
                     # Handle color wheel click
                     color = get_color_from_wheel(event.pos)
-                    if color is None:
-                        color = BLACK
+                    if color is not None:
+                        print(f"Color selected: {color}")
                 else:
                     tool_names = ["Pencil", "Brush", "Line", "Rectangle", "Ellipse", "Fill", "Text", "Eraser"]
                     button_width, button_height = 80, 30
@@ -228,40 +222,28 @@ while running:
                         rect = pygame.Rect(300 + (i * (button_width + 10)), 10, button_width, button_height)
                         if rect.collidepoint(event.pos):
                             tool = name
+                            print(f"{tool} selected")
                             break
+
+                    # Handle color grid click
                     grid_x, grid_y = 150, 10
                     grid_size = 30
                     for i, c in enumerate(GRID_COLORS):
                         rect = pygame.Rect(grid_x + (i % 3) * (grid_size + 10), grid_y + (i // 3) * (grid_size + 10), grid_size, grid_size)
                         if rect.collidepoint(event.pos):
                             color = GRID_COLORS[i]
+                            print(f"Grid color selected: {color}")
                             break
-            if event.type == pygame.MOUSEBUTTONUP:
-                drawing = False
-                last_pos = None
-            if event.type == pygame.MOUSEMOTION:
-                if drawing:
-                    if tool == "Pencil" or tool == "Brush":
-                        pygame.draw.line(canvas, color, last_pos, (event.pos[0], event.pos[1] - TOOLBAR_HEIGHT - MENU_BAR_HEIGHT - DROP_DOWN_HEIGHT), brush_size if tool == "Brush" else 1)
-                    elif tool == "Line":
-                        canvas.blit(pygame.image.fromstring(undo_stack[-1], (WINDOW_WIDTH, WINDOW_HEIGHT - TOOLBAR_HEIGHT - MENU_BAR_HEIGHT - DROP_DOWN_HEIGHT), 'RGB'), (0, 0))
-                        pygame.draw.line(canvas, color, last_pos, (event.pos[0], event.pos[1] - TOOLBAR_HEIGHT - MENU_BAR_HEIGHT - DROP_DOWN_HEIGHT), brush_size)
-                    elif tool == "Rectangle":
-                        canvas.blit(pygame.image.fromstring(undo_stack[-1], (WINDOW_WIDTH, WINDOW_HEIGHT - TOOLBAR_HEIGHT - MENU_BAR_HEIGHT - DROP_DOWN_HEIGHT), 'RGB'), (0, 0))
-                        pygame.draw.rect(canvas, color, pygame.Rect(min(last_pos[0], event.pos[0]), min(last_pos[1], event.pos[1] - TOOLBAR_HEIGHT - MENU_BAR_HEIGHT - DROP_DOWN_HEIGHT), abs(last_pos[0] - event.pos[0]), abs(last_pos[1] - (event.pos[1] - TOOLBAR_HEIGHT - MENU_BAR_HEIGHT - DROP_DOWN_HEIGHT))), brush_size)
-                    elif tool == "Ellipse":
-                        canvas.blit(pygame.image.fromstring(undo_stack[-1], (WINDOW_WIDTH, WINDOW_HEIGHT - TOOLBAR_HEIGHT - MENU_BAR_HEIGHT - DROP_DOWN_HEIGHT), 'RGB'), (0, 0))
-                        pygame.draw.ellipse(canvas, color, pygame.Rect(min(last_pos[0], event.pos[0]), min(last_pos[1], event.pos[1] - TOOLBAR_HEIGHT - MENU_BAR_HEIGHT - DROP_DOWN_HEIGHT), abs(last_pos[0] - event.pos[0]), abs(last_pos[1] - (event.pos[1] - TOOLBAR_HEIGHT - MENU_BAR_HEIGHT - DROP_DOWN_HEIGHT))), brush_size)
-                    last_pos = (event.pos[0], event.pos[1] - TOOLBAR_HEIGHT - MENU_BAR_HEIGHT - DROP_DOWN_HEIGHT)
-            if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_ESCAPE:
-                    running = False
-                if event.key == pygame.K_s and (pygame.key.get_mods() & pygame.KMOD_CTRL):
-                    save_canvas_as_image()
-                if event.key == pygame.K_o and (pygame.key.get_mods() & pygame.KMOD_CTRL):
-                    open_file()
-                if event.key == pygame.K_u and (pygame.key.get_mods() & pygame.KMOD_CTRL):
-                    restore_from_undo_stack()
+
+        # Example for logging brush size changes
+        # You can add similar checks for mousewheel up/down if you have those events to change brush size
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_UP:
+                set_brush_size(brush_size + 1)
+            elif event.key == pygame.K_DOWN:
+                set_brush_size(brush_size - 1)
+
+        # Continue handling other events like drawing, etc.
 
     # Draw everything
     screen.fill(WHITE)
