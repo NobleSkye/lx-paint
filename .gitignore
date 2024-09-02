@@ -1,3 +1,4 @@
-build/*
-.venv/*s
+builds
+.venv
 old
+update
